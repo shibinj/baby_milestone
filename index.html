@@ -57,6 +57,40 @@
         .view-btn:hover {
             background: #0b7dda;
         }
+        .backup-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .export-btn {
+            flex: 1;
+            background: #9C27B0;
+            padding: 12px;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        .export-btn:hover {
+            background: #7B1FA2;
+        }
+        .import-btn {
+            flex: 1;
+            background: #00BCD4;
+            padding: 12px;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        .import-btn:hover {
+            background: #0097A7;
+        }
+        #importFile {
+            display: none;
+        }
         .results {
             margin-top: 30px;
             padding: 20px;
@@ -119,6 +153,12 @@
         <button onclick="calculateMilestones()">Calculate Milestones</button>
         <button class="view-btn" onclick="viewSavedData()">View Saved Babies</button>
         
+        <div class="backup-buttons">
+            <button class="export-btn" onclick="exportData()">📥 Export Backup</button>
+            <button class="import-btn" onclick="document.getElementById('importFile').click()">📤 Import Backup</button>
+        </div>
+        <input type="file" id="importFile" accept=".json" onchange="importData(event)">
+        
         <div class="results" id="results"></div>
         <div class="saved-list" id="savedList"></div>
     </div>
@@ -126,7 +166,68 @@
     <script>
         window.onload = function() {
             checkMilestones();
+            checkBackupReminder();
         };
+
+        function checkBackupReminder() {
+            const lastBackup = localStorage.getItem('lastBackup');
+            const now = Date.now();
+            const sevenDays = 7 * 24 * 60 * 60 * 1000;
+            
+            if (!lastBackup || (now - parseInt(lastBackup)) > sevenDays) {
+                const saved = JSON.parse(localStorage.getItem('babies') || '[]');
+                if (saved.length > 0) {
+                    setTimeout(() => {
+                        if (confirm('It\'s been a week! Would you like to backup your data now?')) {
+                            exportData();
+                        }
+                    }, 1000);
+                }
+            }
+        }
+
+        function exportData() {
+            const data = {
+                babies: JSON.parse(localStorage.getItem('babies') || '[]'),
+                exportDate: new Date().toISOString()
+            };
+            
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `baby-milestones-backup-${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            localStorage.setItem('lastBackup', Date.now().toString());
+            alert('Backup downloaded successfully!');
+        }
+
+        function importData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if (data.babies && Array.isArray(data.babies)) {
+                        if (confirm(`Import ${data.babies.length} baby record(s)? This will replace your current data.`)) {
+                            localStorage.setItem('babies', JSON.stringify(data.babies));
+                            alert('Data imported successfully!');
+                            viewSavedData();
+                        }
+                    } else {
+                        alert('Invalid backup file format');
+                    }
+                } catch (error) {
+                    alert('Error reading backup file');
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = '';
+        }
 
         function checkMilestones() {
             const saved = JSON.parse(localStorage.getItem('babies') || '[]');
