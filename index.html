@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Baby Milestone Tracker</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-top: 0;
+        }
+        label {
+            display: block;
+            margin: 15px 0 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-sizing: border-box;
+            font-size: 16px;
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            margin-top: 20px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        .view-btn {
+            background: #2196F3;
+            margin-top: 10px;
+        }
+        .view-btn:hover {
+            background: #0b7dda;
+        }
+        .results {
+            margin-top: 30px;
+            padding: 20px;
+            background: #e8f5e9;
+            border-radius: 5px;
+            display: none;
+        }
+        .saved-list {
+            margin-top: 30px;
+            display: none;
+        }
+        .baby-card {
+            background: white;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            position: relative;
+        }
+        .edit-btn, .delete-btn {
+            padding: 5px 10px;
+            margin: 5px 5px 0 0;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .edit-btn {
+            background: #FF9800;
+            color: white;
+        }
+        .delete-btn {
+            background: #f44336;
+            color: white;
+        }
+        .milestone {
+            margin: 10px 0;
+            padding: 10px;
+            background: white;
+            border-left: 4px solid #4CAF50;
+        }
+        .milestone strong {
+            color: #2e7d32;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>👶 Baby Milestone Tracker</h1>
+        
+        <label>Baby's Name</label>
+        <input type="text" id="babyName" placeholder="Enter baby's name">
+        
+        <label>Birth Date (DD/MM/YYYY)</label>
+        <input type="text" id="birthDate" placeholder="e.g., 15/08/2025">
+        
+        <label>Gestational Age (weeks)</label>
+        <input type="number" id="gestationalAge" placeholder="e.g., 40" min="20" max="44">
+        
+        <button onclick="calculateMilestones()">Calculate Milestones</button>
+        <button class="view-btn" onclick="viewSavedData()">View Saved Babies</button>
+        
+        <div class="results" id="results"></div>
+        <div class="saved-list" id="savedList"></div>
+    </div>
+
+    <script>
+        window.onload = function() {
+            checkMilestones();
+        };
+
+        function checkMilestones() {
+            const saved = JSON.parse(localStorage.getItem('babies') || '[]');
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            
+            const lastCheck = localStorage.getItem('lastCheck');
+            const lastCheckDate = lastCheck ? new Date(lastCheck) : null;
+            
+            if (lastCheckDate && lastCheckDate.toDateString() === today.toDateString()) {
+                return;
+            }
+
+            let alerts = [];
+            saved.forEach(baby => {
+                baby.milestones.forEach(m => {
+                    const milestoneDate = new Date(m.date);
+                    milestoneDate.setHours(0, 0, 0, 0);
+                    
+                    const daysSince = Math.floor((today - milestoneDate) / (1000 * 60 * 60 * 24));
+                    
+                    if (daysSince >= 0 && daysSince <= 5) {
+                        if (daysSince === 0) {
+                            alerts.push(`🎉 ${baby.name} has completed ${m.months} months today!`);
+                        } else {
+                            alerts.push(`⏰ ${baby.name} completed ${m.months} months ${daysSince} day${daysSince > 1 ? 's' : ''} ago!`);
+                        }
+                    }
+                });
+            });
+
+            if (alerts.length > 0) {
+                alert(alerts.join('\n\n'));
+            }
+
+            localStorage.setItem('lastCheck', today.toISOString());
+        }
+
+        function calculateMilestones() {
+            const name = document.getElementById('babyName').value.trim();
+            const birthDateStr = document.getElementById('birthDate').value.trim();
+            const gestationalAge = parseInt(document.getElementById('gestationalAge').value);
+
+            if (!name || !birthDateStr || !gestationalAge) {
+                alert('Please fill in all fields');
+                return;
+            }
+
+            const parts = birthDateStr.split('/');
+            if (parts.length !== 3) {
+                alert('Please use DD/MM/YYYY format');
+                return;
+            }
+
+            const birthDate = new Date(parts[2], parts[1] - 1, parts[0]);
+            if (isNaN(birthDate.getTime())) {
+                alert('Invalid date');
+                return;
+            }
+
+            const prematureWeeks = 40 - gestationalAge;
+            const adjustmentDays = prematureWeeks * 7;
+
+            const milestones = [6, 9, 12];
+            const milestoneData = [];
+            let html = `<h3>${name}'s Milestones</h3>
+                <div class="milestone">
+                    <strong>Name:</strong> ${name}<br>
+                    <strong>Birth Date:</strong> ${birthDateStr}<br>
+                    <strong>Gestational Age:</strong> ${gestationalAge} weeks
+                </div>`;
+            
+            milestones.forEach(months => {
+                const milestoneDate = new Date(birthDate);
+                milestoneDate.setMonth(milestoneDate.getMonth() + months);
+                milestoneDate.setDate(milestoneDate.getDate() + adjustmentDays);
+                
+                milestoneData.push({ months, date: milestoneDate.toISOString() });
+                
+                html += `<div class="milestone">
+                    <strong>${months} months:</strong> ${milestoneDate.toLocaleDateString('en-GB')}
+                </div>`;
+
+                scheduleNotification(name, months, milestoneDate);
+            });
+
+            saveData({ name, birthDateStr, gestationalAge, milestones: milestoneData });
+            checkMilestones();
+
+            document.getElementById('results').innerHTML = html;
+            document.getElementById('results').style.display = 'block';
+            document.getElementById('savedList').style.display = 'none';
+        }
+
+        function saveData(data) {
+            let saved = JSON.parse(localStorage.getItem('babies') || '[]');
+            const existing = saved.findIndex(b => b.name === data.name && b.birthDateStr === data.birthDateStr);
+            if (existing >= 0) {
+                saved[existing] = data;
+            } else {
+                saved.push(data);
+            }
+            localStorage.setItem('babies', JSON.stringify(saved));
+        }
+
+        function viewSavedData() {
+            const saved = JSON.parse(localStorage.getItem('babies') || '[]');
+            
+            if (saved.length === 0) {
+                alert('No saved data yet');
+                return;
+            }
+
+            let html = '<h3>Saved Babies</h3>';
+            saved.forEach((baby, index) => {
+                html += `<div class="baby-card">
+                    <strong>${baby.name}</strong><br>
+                    Birth Date: ${baby.birthDateStr}<br>
+                    Gestational Age: ${baby.gestationalAge} weeks<br>`;
+                
+                baby.milestones.forEach(m => {
+                    const date = new Date(m.date);
+                    html += `<br>${m.months} months: ${date.toLocaleDateString('en-GB')}`;
+                });
+                
+                html += `<br><button class="edit-btn" onclick="editBaby(${index})">Edit</button>
+                         <button class="delete-btn" onclick="deleteBaby(${index})">Delete</button></div>`;
+            });
+
+            document.getElementById('savedList').innerHTML = html;
+            document.getElementById('savedList').style.display = 'block';
+            document.getElementById('results').style.display = 'none';
+        }
+
+        function editBaby(index) {
+            const saved = JSON.parse(localStorage.getItem('babies') || '[]');
+            const baby = saved[index];
+            
+            document.getElementById('babyName').value = baby.name;
+            document.getElementById('birthDate').value = baby.birthDateStr;
+            document.getElementById('gestationalAge').value = baby.gestationalAge;
+            
+            document.getElementById('savedList').style.display = 'none';
+            window.scrollTo(0, 0);
+        }
+
+        function deleteBaby(index) {
+            if (!confirm('Delete this baby\'s data?')) return;
+            
+            const saved = JSON.parse(localStorage.getItem('babies') || '[]');
+            saved.splice(index, 1);
+            localStorage.setItem('babies', JSON.stringify(saved));
+            viewSavedData();
+        }
+
+        function scheduleNotification(name, months, date) {
+            if ('Notification' in window) {
+                Notification.requestPermission();
+            }
+
+            const now = new Date();
+            const timeUntil = date - now;
+
+            if (timeUntil > 0 && timeUntil <= 2147483647) {
+                setTimeout(() => {
+                    if (Notification.permission === 'granted') {
+                        new Notification(`${name}'s Milestone!`, {
+                            body: `${name} has completed ${months} months today!`,
+                            icon: '👶'
+                        });
+                    } else {
+                        alert(`${name} has completed ${months} months today!`);
+                    }
+                }, timeUntil);
+            }
+        }
+    </script>
+</body>
+</html>
