@@ -147,8 +147,11 @@
         <label>Birth Date (DD/MM/YYYY)</label>
         <input type="text" id="birthDate" placeholder="e.g., 15/08/2025">
         
-        <label>Gestational Age (weeks)</label>
-        <input type="number" id="gestationalAge" placeholder="e.g., 40" min="20" max="44">
+        <label>Gestational Age</label>
+        <div style="display: flex; gap: 10px;">
+            <input type="number" id="gestationalWeeks" placeholder="Weeks (e.g., 40)" min="20" max="44" style="flex: 1;">
+            <input type="number" id="gestationalDays" placeholder="Days (0-6)" min="0" max="6" style="flex: 1;">
+        </div>
         
         <button onclick="calculateMilestones()">Calculate Milestones</button>
         <button class="view-btn" onclick="viewSavedData()">View Saved Babies</button>
@@ -170,19 +173,13 @@
         };
 
         function checkBackupReminder() {
-            const lastBackup = localStorage.getItem('lastBackup');
-            const now = Date.now();
-            const sevenDays = 7 * 24 * 60 * 60 * 1000;
-            
-            if (!lastBackup || (now - parseInt(lastBackup)) > sevenDays) {
-                const saved = JSON.parse(localStorage.getItem('babies') || '[]');
-                if (saved.length > 0) {
-                    setTimeout(() => {
-                        if (confirm('It\'s been a week! Would you like to backup your data now?')) {
-                            exportData();
-                        }
-                    }, 1000);
-                }
+            const saved = JSON.parse(localStorage.getItem('babies') || '[]');
+            if (saved.length > 0) {
+                setTimeout(() => {
+                    if (confirm('Welcome to the Baby Milestone Tracker, would you like to take backup?')) {
+                        exportData();
+                    }
+                }, 1000);
             }
         }
 
@@ -269,9 +266,10 @@
         function calculateMilestones() {
             const name = document.getElementById('babyName').value.trim();
             const birthDateStr = document.getElementById('birthDate').value.trim();
-            const gestationalAge = parseInt(document.getElementById('gestationalAge').value);
+            const gestationalWeeks = parseInt(document.getElementById('gestationalWeeks').value) || 0;
+            const gestationalDays = parseInt(document.getElementById('gestationalDays').value) || 0;
 
-            if (!name || !birthDateStr || !gestationalAge) {
+            if (!name || !birthDateStr || !gestationalWeeks) {
                 alert('Please fill in all fields');
                 return;
             }
@@ -288,16 +286,19 @@
                 return;
             }
 
-            const prematureWeeks = 40 - gestationalAge;
-            const adjustmentDays = prematureWeeks * 7;
+            const totalGestationalDays = (gestationalWeeks * 7) + gestationalDays;
+            const fullTermDays = 40 * 7;
+            const adjustmentDays = fullTermDays - totalGestationalDays;
 
             const milestones = [6, 9, 12];
             const milestoneData = [];
+            const gestationalDisplay = gestationalDays > 0 ? `${gestationalWeeks} weeks ${gestationalDays} days` : `${gestationalWeeks} weeks`;
+            
             let html = `<h3>${name}'s Milestones</h3>
                 <div class="milestone">
                     <strong>Name:</strong> ${name}<br>
                     <strong>Birth Date:</strong> ${birthDateStr}<br>
-                    <strong>Gestational Age:</strong> ${gestationalAge} weeks
+                    <strong>Gestational Age:</strong> ${gestationalDisplay}
                 </div>`;
             
             milestones.forEach(months => {
@@ -314,7 +315,7 @@
                 scheduleNotification(name, months, milestoneDate);
             });
 
-            saveData({ name, birthDateStr, gestationalAge, milestones: milestoneData });
+            saveData({ name, birthDateStr, gestationalWeeks, gestationalDays, milestones: milestoneData });
             checkMilestones();
 
             document.getElementById('results').innerHTML = html;
@@ -343,10 +344,14 @@
 
             let html = '<h3>Saved Babies</h3>';
             saved.forEach((baby, index) => {
+                const gestationalDisplay = baby.gestationalDays > 0 
+                    ? `${baby.gestationalWeeks} weeks ${baby.gestationalDays} days` 
+                    : `${baby.gestationalWeeks || baby.gestationalAge} weeks`;
+                
                 html += `<div class="baby-card">
                     <strong>${baby.name}</strong><br>
                     Birth Date: ${baby.birthDateStr}<br>
-                    Gestational Age: ${baby.gestationalAge} weeks<br>`;
+                    Gestational Age: ${gestationalDisplay}<br>`;
                 
                 baby.milestones.forEach(m => {
                     const date = new Date(m.date);
@@ -368,7 +373,8 @@
             
             document.getElementById('babyName').value = baby.name;
             document.getElementById('birthDate').value = baby.birthDateStr;
-            document.getElementById('gestationalAge').value = baby.gestationalAge;
+            document.getElementById('gestationalWeeks').value = baby.gestationalWeeks || baby.gestationalAge || '';
+            document.getElementById('gestationalDays').value = baby.gestationalDays || 0;
             
             document.getElementById('savedList').style.display = 'none';
             window.scrollTo(0, 0);
