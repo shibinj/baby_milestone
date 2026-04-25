@@ -2,11 +2,11 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Only signed-in users can check if they are on the allowlist.
+    // Each user can only check their OWN allowlist entry — not enumerate others.
     // No one can write to the allowlist from the app — manage it in the Firebase Console.
     match /allowedUsers/{email} {
-      allow read: if request.auth != null;
-      allow write: if false;
+      allow get:    if request.auth != null && request.auth.token.email == email;
+      allow list, write: if false;
     }
 
     // Each user can only read and write their own data.
