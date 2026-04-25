@@ -425,6 +425,13 @@
     let babiesCache = [];
     let currentUser = null;
 
+    // HTML-escape user-supplied values before interpolating into innerHTML.
+    function esc(s) {
+        return String(s ?? '').replace(/[&<>"'`]/g, c => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '`': '&#96;'
+        }[c]));
+    }
+
     // ── Auth ────────────────────────────────────────────────
 
     auth.onAuthStateChanged(async (user) => {
@@ -541,12 +548,12 @@
             <div class="stat-card">
                 <div class="stat-value">📅</div>
                 <div class="stat-label">Oldest Entry</div>
-                <div class="stat-sub">${oldest.birthDateStr}<br><span style="font-weight:normal;color:#bbb">${oldest.name}</span></div>
+                <div class="stat-sub">${esc(oldest.birthDateStr)}<br><span style="font-weight:normal;color:#bbb">${esc(oldest.name)}</span></div>
             </div>
             <div class="stat-card">
                 <div class="stat-value">🆕</div>
                 <div class="stat-label">Newest Entry</div>
-                <div class="stat-sub">${newest.birthDateStr}<br><span style="font-weight:normal;color:#bbb">${newest.name}</span></div>
+                <div class="stat-sub">${esc(newest.birthDateStr)}<br><span style="font-weight:normal;color:#bbb">${esc(newest.name)}</span></div>
             </div>`;
         document.getElementById('overviewPanel').style.display = 'block';
     }
@@ -576,11 +583,11 @@
         upcoming.sort((a,b) => a.md - b.md).forEach(({ baby, m, md, isToday }) => {
             const days = Math.round((md - today) / 86400000);
             const when = isToday ? 'Today!' : `in ${days} day${days > 1 ? 's' : ''} (${md.toLocaleDateString('en-GB')})`;
-            html += `<div class="milestone-item ${isToday ? 'today' : 'upcoming'}">${isToday ? '🎉' : '⏰'} <strong>${baby.name}</strong> — ${m.months} month milestone ${when}</div>`;
+            html += `<div class="milestone-item ${isToday ? 'today' : 'upcoming'}">${isToday ? '🎉' : '⏰'} <strong>${esc(baby.name)}</strong> — ${m.months} month milestone ${when}</div>`;
         });
         recent.sort((a,b) => b.md - a.md).forEach(({ baby, m, md }) => {
             const days = Math.round((today - md) / 86400000);
-            html += `<div class="milestone-item recent">✅ <strong>${baby.name}</strong> — ${m.months} month milestone ${days} day${days > 1 ? 's' : ''} ago (${md.toLocaleDateString('en-GB')})</div>`;
+            html += `<div class="milestone-item recent">✅ <strong>${esc(baby.name)}</strong> — ${m.months} month milestone ${days} day${days > 1 ? 's' : ''} ago (${md.toLocaleDateString('en-GB')})</div>`;
         });
 
         document.getElementById('milestoneItems').innerHTML = html;
@@ -611,9 +618,9 @@
 
         const milestoneData = [];
         let rows = `
-            <div class="result-row"><span class="result-label">Name</span><span class="result-value">${name}</span></div>
-            <div class="result-row"><span class="result-label">Birth Date</span><span class="result-value">${birthDateStr}</span></div>
-            <div class="result-row"><span class="result-label">Gestational Age</span><span class="result-value">${gestDisplay}</span></div>`;
+            <div class="result-row"><span class="result-label">Name</span><span class="result-value">${esc(name)}</span></div>
+            <div class="result-row"><span class="result-label">Birth Date</span><span class="result-value">${esc(birthDateStr)}</span></div>
+            <div class="result-row"><span class="result-label">Gestational Age</span><span class="result-value">${esc(gestDisplay)}</span></div>`;
 
         [6, 9, 12].forEach(months => {
             const md = new Date(birthDate);
@@ -627,7 +634,7 @@
         await saveData({ name, birthDateStr, gestationalWeeks, gestationalDays, milestones: milestoneData });
 
         const panel = document.getElementById('results');
-        panel.innerHTML = `<h3>${name}'s Milestones</h3>${rows}`;
+        panel.innerHTML = `<h3>${esc(name)}'s Milestones</h3>${rows}`;
         panel.style.display = 'block';
         panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
@@ -673,8 +680,8 @@
             <div class="baby-card" id="card-${idx}">
                 <div class="baby-row" onclick="toggleCard(${idx})">
                     <div class="baby-row-info">
-                        <span class="baby-row-name">${baby.name}</span>
-                        <span class="baby-row-date">Born: ${baby.birthDateStr}</span>
+                        <span class="baby-row-name">${esc(baby.name)}</span>
+                        <span class="baby-row-date">Born: ${esc(baby.birthDateStr)}</span>
                     </div>
                     <span class="chevron" id="chevron-${idx}">›</span>
                 </div>
@@ -683,7 +690,7 @@
                     <div class="detail-view" id="detailView-${idx}">
                         <div class="detail-row">
                             <span class="detail-label">Gestational Age</span>
-                            <span class="detail-value">${gestDisplay}</span>
+                            <span class="detail-value">${esc(gestDisplay)}</span>
                         </div>
                         ${milestoneRows}
                         <div class="detail-actions">
@@ -694,13 +701,13 @@
                     <!-- Inline edit form -->
                     <div class="edit-form" id="editForm-${idx}" style="display:none">
                         <label>Baby's Name</label>
-                        <input type="text" id="editName-${idx}" value="${baby.name}">
+                        <input type="text" id="editName-${idx}" value="${esc(baby.name)}">
                         <label>Birth Date</label>
-                        <input type="date" id="editBirthDate-${idx}" value="${displayToDateInput(baby.birthDateStr)}">
+                        <input type="date" id="editBirthDate-${idx}" value="${esc(displayToDateInput(baby.birthDateStr))}">
                         <label>Gestational Age</label>
                         <div class="two-col">
-                            <input type="number" id="editWeeks-${idx}" value="${baby.gestationalWeeks || baby.gestationalAge || ''}" placeholder="Weeks" min="20" max="44">
-                            <input type="number" id="editDays-${idx}"  value="${baby.gestationalDays || 0}" placeholder="Days" min="0" max="6">
+                            <input type="number" id="editWeeks-${idx}" value="${esc(baby.gestationalWeeks || baby.gestationalAge || '')}" placeholder="Weeks" min="20" max="44">
+                            <input type="number" id="editDays-${idx}"  value="${esc(baby.gestationalDays || 0)}" placeholder="Days" min="0" max="6">
                         </div>
                         <div class="edit-actions">
                             <button class="save-btn"   onclick="saveEdit(${idx})">💾 Save</button>
@@ -819,14 +826,34 @@
         reader.onload = async (e) => {
             try {
                 const data = JSON.parse(e.target.result);
-                if (data.babies && Array.isArray(data.babies)) {
-                    if (confirm(`Import ${data.babies.length} record(s)? This will replace current data.`)) {
-                        babiesCache = data.babies;
-                        await saveBabiesToFirestore();
-                        alert('Data imported successfully!');
-                        showDashboard();
+                if (!data.babies || !Array.isArray(data.babies)) {
+                    alert('Invalid backup file format'); return;
+                }
+                const cleaned = [];
+                for (const b of data.babies) {
+                    if (!b || typeof b.name !== 'string' || typeof b.birthDateStr !== 'string') {
+                        alert('Invalid backup file: malformed record'); return;
                     }
-                } else { alert('Invalid backup file format'); }
+                    if (b.name.length > 100 || !/^\d{2}\/\d{2}\/\d{4}$/.test(b.birthDateStr)) {
+                        alert('Invalid backup file: bad name or date'); return;
+                    }
+                    const milestones = Array.isArray(b.milestones) ? b.milestones.filter(m =>
+                        m && typeof m.months === 'number' && typeof m.date === 'string'
+                    ).map(m => ({ months: m.months, date: m.date })) : [];
+                    cleaned.push({
+                        name: b.name.slice(0, 100),
+                        birthDateStr: b.birthDateStr,
+                        gestationalWeeks: Number(b.gestationalWeeks) || Number(b.gestationalAge) || 0,
+                        gestationalDays:  Number(b.gestationalDays)  || 0,
+                        milestones
+                    });
+                }
+                if (confirm(`Import ${cleaned.length} record(s)? This will replace current data.`)) {
+                    babiesCache = cleaned;
+                    await saveBabiesToFirestore();
+                    alert('Data imported successfully!');
+                    showDashboard();
+                }
             } catch { alert('Error reading backup file'); }
         };
         reader.readAsText(file);
