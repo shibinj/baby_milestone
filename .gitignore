@@ -1,0 +1,50 @@
+# Python files
+*.py
+*.pyc
+__pycache__/
+
+# Documents
+*.pdf
+*.xlsx
+*.xls
+*.doc
+*.docx
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+Desktop.ini
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Node modules (if ever used)
+node_modules/
+package-lock.json
+
+# Logs
+*.log
+npm-debug.log*
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# Backup files
+*.bak
+*.backup
+
+# Firebase config (contains API key — never commit)
+admin/firebase-config.js
+
+#AI tools
+.claude/

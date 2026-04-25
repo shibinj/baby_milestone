@@ -4,6 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Baby Milestone Tracker</title>
+
+    <!-- Firebase SDKs (compat version - no build tool needed) -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -47,16 +53,9 @@
             font-size: 16px;
             cursor: pointer;
         }
-        button:hover {
-            background: #45a049;
-        }
-        .view-btn {
-            background: #2196F3;
-            margin-top: 10px;
-        }
-        .view-btn:hover {
-            background: #0b7dda;
-        }
+        button:hover { background: #45a049; }
+        .view-btn { background: #2196F3; margin-top: 10px; }
+        .view-btn:hover { background: #0b7dda; }
         .backup-buttons {
             display: flex;
             gap: 10px;
@@ -72,9 +71,7 @@
             font-size: 16px;
             cursor: pointer;
         }
-        .export-btn:hover {
-            background: #7B1FA2;
-        }
+        .export-btn:hover { background: #7B1FA2; }
         .import-btn {
             flex: 1;
             background: #00BCD4;
@@ -85,12 +82,8 @@
             font-size: 16px;
             cursor: pointer;
         }
-        .import-btn:hover {
-            background: #0097A7;
-        }
-        #importFile {
-            display: none;
-        }
+        .import-btn:hover { background: #0097A7; }
+        #importFile { display: none; }
         .results {
             margin-top: 30px;
             padding: 20px;
@@ -98,10 +91,7 @@
             border-radius: 5px;
             display: none;
         }
-        .saved-list {
-            margin-top: 30px;
-            display: none;
-        }
+        .saved-list { margin-top: 30px; display: none; }
         .baby-card {
             background: white;
             padding: 15px;
@@ -118,298 +108,386 @@
             cursor: pointer;
             font-size: 14px;
         }
-        .edit-btn {
-            background: #FF9800;
-            color: white;
-        }
-        .delete-btn {
-            background: #f44336;
-            color: white;
-        }
+        .edit-btn { background: #FF9800; color: white; }
+        .delete-btn { background: #f44336; color: white; }
         .milestone {
             margin: 10px 0;
             padding: 10px;
             background: white;
             border-left: 4px solid #4CAF50;
         }
-        .milestone strong {
-            color: #2e7d32;
+        .milestone strong { color: #2e7d32; }
+
+        /* Auth & loading styles */
+        #loadingScreen {
+            text-align: center;
+            padding: 60px 20px;
+            color: #888;
         }
+        #authScreen {
+            text-align: center;
+            padding: 40px 20px;
+            display: none;
+        }
+        #authScreen h1 { margin-bottom: 10px; }
+        #authScreen p { color: #666; margin: 0 0 30px; }
+        .sign-in-btn {
+            background: #4285F4;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            padding: 14px 28px;
+            font-size: 16px;
+            cursor: pointer;
+            width: auto;
+            margin: 0;
+        }
+        .sign-in-btn:hover { background: #357ae8; }
+        #appContent { display: none; }
+        .user-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #eee;
+        }
+        .user-header h1 { margin: 0; font-size: 1.2em; }
+        .user-info { font-size: 13px; color: #888; margin-bottom: 4px; }
+        .sign-out-btn {
+            background: #e53935;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            padding: 5px 12px;
+            font-size: 13px;
+            cursor: pointer;
+            width: auto;
+            margin: 0;
+        }
+        .sign-out-btn:hover { background: #b71c1c; }
     </style>
 </head>
 <body>
-    <div class="container">
+<div class="container">
+
+    <!-- Loading -->
+    <div id="loadingScreen">
+        <p>Loading...</p>
+    </div>
+
+    <!-- Sign-in screen (shown when not authenticated) -->
+    <div id="authScreen">
         <h1>👶 Baby Milestone Tracker</h1>
-        
+        <p>Sign in to keep your data safe and synced across all your devices.</p>
+        <button class="sign-in-btn" onclick="signInWithGoogle()">🔑 Sign in with Google</button>
+    </div>
+
+    <!-- Main app (shown when authenticated) -->
+    <div id="appContent">
+        <div class="user-header">
+            <h1>👶 Baby Milestone Tracker</h1>
+            <div style="text-align:right;">
+                <div class="user-info" id="userEmail"></div>
+                <button class="sign-out-btn" onclick="doSignOut()">Sign Out</button>
+            </div>
+        </div>
+
         <label>Baby's Name</label>
         <input type="text" id="babyName" placeholder="Enter baby's name">
-        
+
         <label>Birth Date (DD/MM/YYYY)</label>
         <input type="text" id="birthDate" placeholder="e.g., 15/08/2025">
-        
+
         <label>Gestational Age</label>
         <div style="display: flex; gap: 10px;">
             <input type="number" id="gestationalWeeks" placeholder="Weeks (e.g., 40)" min="20" max="44" style="flex: 1;">
             <input type="number" id="gestationalDays" placeholder="Days (0-6)" min="0" max="6" style="flex: 1;">
         </div>
-        
+
         <button onclick="calculateMilestones()">Calculate Milestones</button>
         <button class="view-btn" onclick="viewSavedData()">View Saved Babies</button>
-        
+
         <div class="backup-buttons">
             <button class="export-btn" onclick="exportData()">📥 Export Backup</button>
             <button class="import-btn" onclick="document.getElementById('importFile').click()">📤 Import Backup</button>
         </div>
         <input type="file" id="importFile" accept=".json" onchange="importData(event)">
-        
+
         <div class="results" id="results"></div>
         <div class="saved-list" id="savedList"></div>
     </div>
 
-    <script>
-        window.onload = function() {
+</div>
+
+<script>
+    // Firebase config values are injected at deploy time by GitHub Actions.
+    // Do NOT replace these placeholders manually — add the real values as
+    // GitHub repository secrets (see .github/workflows/deploy.yml for names).
+    const firebaseConfig = {
+        apiKey:            "__FIREBASE_API_KEY__",
+        authDomain:        "__FIREBASE_AUTH_DOMAIN__",
+        projectId:         "__FIREBASE_PROJECT_ID__",
+        storageBucket:     "__FIREBASE_STORAGE_BUCKET__",
+        messagingSenderId: "__FIREBASE_MESSAGING_SENDER_ID__",
+        appId:             "__FIREBASE_APP_ID__"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db   = firebase.firestore();
+
+    let babiesCache = [];
+    let currentUser = null;
+
+    // Runs once on load and whenever auth state changes (sign in / sign out / page refresh)
+    auth.onAuthStateChanged(async (user) => {
+        if (user) {
+            currentUser = user;
+            document.getElementById('userEmail').textContent = user.email;
+            await loadBabiesFromFirestore();
+            showApp();
             checkMilestones();
-            checkBackupReminder();
-        };
-
-        function checkBackupReminder() {
-            const saved = JSON.parse(localStorage.getItem('babies') || '[]');
-            if (saved.length > 0) {
-                setTimeout(() => {
-                    if (confirm('Welcome to the Baby Milestone Tracker, would you like to take backup?')) {
-                        exportData();
-                    }
-                }, 1000);
-            }
+        } else {
+            currentUser = null;
+            babiesCache = [];
+            showAuthScreen();
         }
+    });
 
-        function exportData() {
-            const data = {
-                babies: JSON.parse(localStorage.getItem('babies') || '[]'),
-                exportDate: new Date().toISOString()
-            };
-            
-            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `baby-milestones-backup-${new Date().toISOString().split('T')[0]}.json`;
-            a.click();
-            URL.revokeObjectURL(url);
-            
-            localStorage.setItem('lastBackup', Date.now().toString());
-            alert('Backup downloaded successfully!');
+    function showApp() {
+        document.getElementById('loadingScreen').style.display = 'none';
+        document.getElementById('authScreen').style.display   = 'none';
+        document.getElementById('appContent').style.display   = 'block';
+    }
+
+    function showAuthScreen() {
+        document.getElementById('loadingScreen').style.display = 'none';
+        document.getElementById('authScreen').style.display   = 'block';
+        document.getElementById('appContent').style.display   = 'none';
+    }
+
+    async function signInWithGoogle() {
+        const provider = new firebase.auth.GoogleAuthProvider();
+        try {
+            await auth.signInWithPopup(provider);
+        } catch (error) {
+            alert('Sign in failed: ' + error.message);
         }
+    }
 
-        function importData(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const data = JSON.parse(e.target.result);
-                    if (data.babies && Array.isArray(data.babies)) {
-                        if (confirm(`Import ${data.babies.length} baby record(s)? This will replace your current data.`)) {
-                            localStorage.setItem('babies', JSON.stringify(data.babies));
-                            alert('Data imported successfully!');
-                            viewSavedData();
-                        }
+    async function doSignOut() {
+        if (confirm('Sign out?')) {
+            await auth.signOut();
+        }
+    }
+
+    // ================================================================
+    // FIRESTORE — one document per user, stores the babies array
+    // Path: users/{uid}  →  { babies: [...] }
+    // ================================================================
+
+    function userDocRef() {
+        return db.collection('users').doc(currentUser.uid);
+    }
+
+    async function loadBabiesFromFirestore() {
+        const snap = await userDocRef().get();
+        babiesCache = snap.exists ? (snap.data().babies || []) : [];
+    }
+
+    async function saveBabiesToFirestore() {
+        await userDocRef().set({ babies: babiesCache }, { merge: true });
+    }
+
+    // ================================================================
+    // APP LOGIC
+    // ================================================================
+
+    function checkMilestones() {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        // Only alert once per device per day (stored locally, not in Firestore)
+        const lastCheck = localStorage.getItem('lastCheck');
+        if (lastCheck && new Date(lastCheck).toDateString() === today.toDateString()) return;
+
+        const alerts = [];
+        babiesCache.forEach(baby => {
+            baby.milestones.forEach(m => {
+                const milestoneDate = new Date(m.date);
+                milestoneDate.setHours(0, 0, 0, 0);
+                const daysSince = Math.floor((today - milestoneDate) / (1000 * 60 * 60 * 24));
+                if (daysSince >= 0 && daysSince <= 5) {
+                    if (daysSince === 0) {
+                        alerts.push(`🎉 ${baby.name} has completed ${m.months} months today!`);
                     } else {
-                        alert('Invalid backup file format');
+                        alerts.push(`⏰ ${baby.name} completed ${m.months} months ${daysSince} day${daysSince > 1 ? 's' : ''} ago!`);
                     }
-                } catch (error) {
-                    alert('Error reading backup file');
                 }
-            };
-            reader.readAsText(file);
-            event.target.value = '';
-        }
+            });
+        });
 
-        function checkMilestones() {
-            const saved = JSON.parse(localStorage.getItem('babies') || '[]');
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            
-            const lastCheck = localStorage.getItem('lastCheck');
-            const lastCheckDate = lastCheck ? new Date(lastCheck) : null;
-            
-            if (lastCheckDate && lastCheckDate.toDateString() === today.toDateString()) {
-                return;
-            }
+        if (alerts.length > 0) alert(alerts.join('\n\n'));
+        localStorage.setItem('lastCheck', today.toISOString());
+    }
 
-            let alerts = [];
-            saved.forEach(baby => {
-                baby.milestones.forEach(m => {
-                    const milestoneDate = new Date(m.date);
-                    milestoneDate.setHours(0, 0, 0, 0);
-                    
-                    const daysSince = Math.floor((today - milestoneDate) / (1000 * 60 * 60 * 24));
-                    
-                    if (daysSince >= 0 && daysSince <= 5) {
-                        if (daysSince === 0) {
-                            alerts.push(`🎉 ${baby.name} has completed ${m.months} months today!`);
-                        } else {
-                            alerts.push(`⏰ ${baby.name} completed ${m.months} months ${daysSince} day${daysSince > 1 ? 's' : ''} ago!`);
-                        }
+    function exportData() {
+        const data = { babies: babiesCache, exportDate: new Date().toISOString() };
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url  = URL.createObjectURL(blob);
+        const a    = document.createElement('a');
+        a.href     = url;
+        a.download = `baby-milestones-backup-${new Date().toISOString().split('T')[0]}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        alert('Backup downloaded successfully!');
+    }
+
+    async function importData(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = async function(e) {
+            try {
+                const data = JSON.parse(e.target.result);
+                if (data.babies && Array.isArray(data.babies)) {
+                    if (confirm(`Import ${data.babies.length} baby record(s)? This will replace your current data.`)) {
+                        babiesCache = data.babies;
+                        await saveBabiesToFirestore();
+                        alert('Data imported successfully!');
+                        viewSavedData();
                     }
-                });
+                } else {
+                    alert('Invalid backup file format');
+                }
+            } catch {
+                alert('Error reading backup file');
+            }
+        };
+        reader.readAsText(file);
+        event.target.value = '';
+    }
+
+    async function calculateMilestones() {
+        const name             = document.getElementById('babyName').value.trim();
+        const birthDateStr     = document.getElementById('birthDate').value.trim();
+        const gestationalWeeks = parseInt(document.getElementById('gestationalWeeks').value) || 0;
+        const gestationalDays  = parseInt(document.getElementById('gestationalDays').value)  || 0;
+
+        if (!name || !birthDateStr || !gestationalWeeks) {
+            alert('Please fill in all fields');
+            return;
+        }
+
+        const parts = birthDateStr.split('/');
+        if (parts.length !== 3) { alert('Please use DD/MM/YYYY format'); return; }
+
+        const birthDate = new Date(parts[2], parts[1] - 1, parts[0]);
+        if (isNaN(birthDate.getTime())) { alert('Invalid date'); return; }
+
+        const adjustmentDays = (40 * 7) - ((gestationalWeeks * 7) + gestationalDays);
+        const gestationalDisplay = gestationalDays > 0
+            ? `${gestationalWeeks} weeks ${gestationalDays} days`
+            : `${gestationalWeeks} weeks`;
+
+        const milestoneData = [];
+        let html = `<h3>${name}'s Milestones</h3>
+            <div class="milestone">
+                <strong>Name:</strong> ${name}<br>
+                <strong>Birth Date:</strong> ${birthDateStr}<br>
+                <strong>Gestational Age:</strong> ${gestationalDisplay}
+            </div>`;
+
+        [6, 9, 12].forEach(months => {
+            const milestoneDate = new Date(birthDate);
+            milestoneDate.setMonth(milestoneDate.getMonth() + months);
+            milestoneDate.setDate(milestoneDate.getDate() + adjustmentDays);
+            milestoneData.push({ months, date: milestoneDate.toISOString() });
+            html += `<div class="milestone">
+                <strong>${months} months:</strong> ${milestoneDate.toLocaleDateString('en-GB')}
+            </div>`;
+            scheduleNotification(name, months, milestoneDate);
+        });
+
+        await saveData({ name, birthDateStr, gestationalWeeks, gestationalDays, milestones: milestoneData });
+        checkMilestones();
+
+        document.getElementById('results').innerHTML   = html;
+        document.getElementById('results').style.display   = 'block';
+        document.getElementById('savedList').style.display = 'none';
+    }
+
+    async function saveData(data) {
+        const existing = babiesCache.findIndex(b => b.name === data.name && b.birthDateStr === data.birthDateStr);
+        if (existing >= 0) {
+            babiesCache[existing] = data;
+        } else {
+            babiesCache.push(data);
+        }
+        await saveBabiesToFirestore();
+    }
+
+    function viewSavedData() {
+        if (babiesCache.length === 0) { alert('No saved data yet'); return; }
+
+        let html = '<h3>Saved Babies</h3>';
+        babiesCache.forEach((baby, index) => {
+            const gestationalDisplay = baby.gestationalDays > 0
+                ? `${baby.gestationalWeeks} weeks ${baby.gestationalDays} days`
+                : `${baby.gestationalWeeks || baby.gestationalAge} weeks`;
+
+            html += `<div class="baby-card">
+                <strong>${baby.name}</strong><br>
+                Birth Date: ${baby.birthDateStr}<br>
+                Gestational Age: ${gestationalDisplay}<br>`;
+
+            baby.milestones.forEach(m => {
+                html += `<br>${m.months} months: ${new Date(m.date).toLocaleDateString('en-GB')}`;
             });
 
-            if (alerts.length > 0) {
-                alert(alerts.join('\n\n'));
-            }
+            html += `<br><button class="edit-btn" onclick="editBaby(${index})">Edit</button>
+                     <button class="delete-btn" onclick="deleteBaby(${index})">Delete</button></div>`;
+        });
 
-            localStorage.setItem('lastCheck', today.toISOString());
+        document.getElementById('savedList').innerHTML         = html;
+        document.getElementById('savedList').style.display     = 'block';
+        document.getElementById('results').style.display       = 'none';
+    }
+
+    function editBaby(index) {
+        const baby = babiesCache[index];
+        document.getElementById('babyName').value          = baby.name;
+        document.getElementById('birthDate').value         = baby.birthDateStr;
+        document.getElementById('gestationalWeeks').value  = baby.gestationalWeeks || baby.gestationalAge || '';
+        document.getElementById('gestationalDays').value   = baby.gestationalDays || 0;
+        document.getElementById('savedList').style.display = 'none';
+        window.scrollTo(0, 0);
+    }
+
+    async function deleteBaby(index) {
+        if (!confirm("Delete this baby's data?")) return;
+        babiesCache.splice(index, 1);
+        await saveBabiesToFirestore();
+        viewSavedData();
+    }
+
+    function scheduleNotification(name, months, date) {
+        if ('Notification' in window) Notification.requestPermission();
+        const timeUntil = date - new Date();
+        if (timeUntil > 0 && timeUntil <= 2147483647) {
+            setTimeout(() => {
+                if (Notification.permission === 'granted') {
+                    new Notification(`${name}'s Milestone!`, {
+                        body: `${name} has completed ${months} months today!`,
+                        icon: '👶'
+                    });
+                } else {
+                    alert(`${name} has completed ${months} months today!`);
+                }
+            }, timeUntil);
         }
-
-        function calculateMilestones() {
-            const name = document.getElementById('babyName').value.trim();
-            const birthDateStr = document.getElementById('birthDate').value.trim();
-            const gestationalWeeks = parseInt(document.getElementById('gestationalWeeks').value) || 0;
-            const gestationalDays = parseInt(document.getElementById('gestationalDays').value) || 0;
-
-            if (!name || !birthDateStr || !gestationalWeeks) {
-                alert('Please fill in all fields');
-                return;
-            }
-
-            const parts = birthDateStr.split('/');
-            if (parts.length !== 3) {
-                alert('Please use DD/MM/YYYY format');
-                return;
-            }
-
-            const birthDate = new Date(parts[2], parts[1] - 1, parts[0]);
-            if (isNaN(birthDate.getTime())) {
-                alert('Invalid date');
-                return;
-            }
-
-            const totalGestationalDays = (gestationalWeeks * 7) + gestationalDays;
-            const fullTermDays = 40 * 7;
-            const adjustmentDays = fullTermDays - totalGestationalDays;
-
-            const milestones = [6, 9, 12];
-            const milestoneData = [];
-            const gestationalDisplay = gestationalDays > 0 ? `${gestationalWeeks} weeks ${gestationalDays} days` : `${gestationalWeeks} weeks`;
-            
-            let html = `<h3>${name}'s Milestones</h3>
-                <div class="milestone">
-                    <strong>Name:</strong> ${name}<br>
-                    <strong>Birth Date:</strong> ${birthDateStr}<br>
-                    <strong>Gestational Age:</strong> ${gestationalDisplay}
-                </div>`;
-            
-            milestones.forEach(months => {
-                const milestoneDate = new Date(birthDate);
-                milestoneDate.setMonth(milestoneDate.getMonth() + months);
-                milestoneDate.setDate(milestoneDate.getDate() + adjustmentDays);
-                
-                milestoneData.push({ months, date: milestoneDate.toISOString() });
-                
-                html += `<div class="milestone">
-                    <strong>${months} months:</strong> ${milestoneDate.toLocaleDateString('en-GB')}
-                </div>`;
-
-                scheduleNotification(name, months, milestoneDate);
-            });
-
-            saveData({ name, birthDateStr, gestationalWeeks, gestationalDays, milestones: milestoneData });
-            checkMilestones();
-
-            document.getElementById('results').innerHTML = html;
-            document.getElementById('results').style.display = 'block';
-            document.getElementById('savedList').style.display = 'none';
-        }
-
-        function saveData(data) {
-            let saved = JSON.parse(localStorage.getItem('babies') || '[]');
-            const existing = saved.findIndex(b => b.name === data.name && b.birthDateStr === data.birthDateStr);
-            if (existing >= 0) {
-                saved[existing] = data;
-            } else {
-                saved.push(data);
-            }
-            localStorage.setItem('babies', JSON.stringify(saved));
-        }
-
-        function viewSavedData() {
-            const saved = JSON.parse(localStorage.getItem('babies') || '[]');
-            
-            if (saved.length === 0) {
-                alert('No saved data yet');
-                return;
-            }
-
-            let html = '<h3>Saved Babies</h3>';
-            saved.forEach((baby, index) => {
-                const gestationalDisplay = baby.gestationalDays > 0 
-                    ? `${baby.gestationalWeeks} weeks ${baby.gestationalDays} days` 
-                    : `${baby.gestationalWeeks || baby.gestationalAge} weeks`;
-                
-                html += `<div class="baby-card">
-                    <strong>${baby.name}</strong><br>
-                    Birth Date: ${baby.birthDateStr}<br>
-                    Gestational Age: ${gestationalDisplay}<br>`;
-                
-                baby.milestones.forEach(m => {
-                    const date = new Date(m.date);
-                    html += `<br>${m.months} months: ${date.toLocaleDateString('en-GB')}`;
-                });
-                
-                html += `<br><button class="edit-btn" onclick="editBaby(${index})">Edit</button>
-                         <button class="delete-btn" onclick="deleteBaby(${index})">Delete</button></div>`;
-            });
-
-            document.getElementById('savedList').innerHTML = html;
-            document.getElementById('savedList').style.display = 'block';
-            document.getElementById('results').style.display = 'none';
-        }
-
-        function editBaby(index) {
-            const saved = JSON.parse(localStorage.getItem('babies') || '[]');
-            const baby = saved[index];
-            
-            document.getElementById('babyName').value = baby.name;
-            document.getElementById('birthDate').value = baby.birthDateStr;
-            document.getElementById('gestationalWeeks').value = baby.gestationalWeeks || baby.gestationalAge || '';
-            document.getElementById('gestationalDays').value = baby.gestationalDays || 0;
-            
-            document.getElementById('savedList').style.display = 'none';
-            window.scrollTo(0, 0);
-        }
-
-        function deleteBaby(index) {
-            if (!confirm('Delete this baby\'s data?')) return;
-            
-            const saved = JSON.parse(localStorage.getItem('babies') || '[]');
-            saved.splice(index, 1);
-            localStorage.setItem('babies', JSON.stringify(saved));
-            viewSavedData();
-        }
-
-        function scheduleNotification(name, months, date) {
-            if ('Notification' in window) {
-                Notification.requestPermission();
-            }
-
-            const now = new Date();
-            const timeUntil = date - now;
-
-            if (timeUntil > 0 && timeUntil <= 2147483647) {
-                setTimeout(() => {
-                    if (Notification.permission === 'granted') {
-                        new Notification(`${name}'s Milestone!`, {
-                            body: `${name} has completed ${months} months today!`,
-                            icon: '👶'
-                        });
-                    } else {
-                        alert(`${name} has completed ${months} months today!`);
-                    }
-                }, timeUntil);
-            }
-        }
-    </script>
+    }
+</script>
 </body>
 </html>
