@@ -11,6 +11,7 @@ A mobile-friendly web app for tracking preterm baby milestones, adjusted for ges
 - **Mobile-first UI** — optimised for phone use in the field
 - **Overview dashboard** — total records, oldest and newest entries at a glance
 - **Milestone activity panel** — shows upcoming (next 7 days) and recent (past 7 days) milestones on login
+- **Sorted by birth date** — baby list is displayed in ascending birth date order
 - **Export to CSV** — for direct use in Excel / SPSS (admins get an extra "Entered By" column)
 - **Export / Import JSON** — for offline backup and data migration
 
@@ -96,7 +97,7 @@ Set these in **GitHub → Settings → Secrets and variables → Actions**:
 
 ## Security Model
 
-- **Authentication**: Google OAuth via Firebase Auth. Popup-based sign-in with redirect fallback.
+- **Authentication**: Google OAuth via Firebase Auth. Popup-based sign-in on desktop; redirect-based on mobile (where popups are unreliable).
 - **Authorization**: Enforced server-side by Firestore rules. The client-side allowlist check is advisory; the database rejects writes from non-allowlisted users regardless of client state.
 - **Attribution integrity**: Firestore rules enforce `ownerEmail` on entry-user writes so researchers cannot forge attribution. Admins write directly to the target user's doc, preserving the original `ownerEmail`.
 - **XSS protection**: All user-supplied values (baby names, dates) are HTML-escaped before being rendered.
