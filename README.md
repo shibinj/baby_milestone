@@ -7,19 +7,35 @@ A mobile-friendly web app for tracking preterm baby milestones, adjusted for ges
 - **Gestational age adjustment** — milestone dates (6, 9, 12 months) are automatically corrected based on birth gestational age
 - **Cloud sync** — data stored in Firebase Firestore, accessible from any device
 - **Google Sign-In** — secure authentication, restricted to authorised users only
+- **Role-based access** — researchers enter their own records; admins see all records across the team
 - **Mobile-first UI** — optimised for phone use in the field
+- **Overview dashboard** — total records, oldest and newest entries at a glance
 - **Milestone activity panel** — shows upcoming (next 7 days) and recent (past 7 days) milestones on login
-- **Export to CSV** — for direct use in Excel / SPSS
+- **Export to CSV** — for direct use in Excel / SPSS (admins get an extra "Entered By" column)
 - **Export / Import JSON** — for offline backup and data migration
 
 ## Access Control
 
-Only users added to the `allowedUsers` collection in Firestore can sign in. To add or remove a user:
+Access is controlled by the `allowedUsers` collection in Firestore. Only users listed there can sign in, and each user has a **role** that determines what they can see.
+
+### Roles
+
+| Role | Can see | Can edit/delete |
+|---|---|---|
+| `entry` | Their own records only | Their own records |
+| `admin` | All records from all users (tagged with "Entered by") | Their own records only |
+
+### Managing users
+
+To add, remove, or promote a user:
 
 1. Go to **Firebase Console → Firestore Database**
 2. Open the `allowedUsers` collection
-3. Add a document with the person's Gmail address as the document ID
-4. To remove access, delete their document
+3. **To add**: create a document with the person's Gmail address as the document ID. Add a field `role` (string) with value `"entry"` or `"admin"`
+4. **To remove**: delete their document
+5. **To promote/demote**: edit the `role` field on their existing document
+
+> A user with no `role` field defaults to `"entry"`.
 
 ## Local Development
 
@@ -54,7 +70,7 @@ const FIREBASE_LOCAL_CONFIG = {
 
 The app deploys automatically to GitHub Pages when a commit is pushed to `main`.
 
-Firebase config values are never stored in the repository. They are injected at deploy time by GitHub Actions using repository secrets.
+Firebase config values are never stored in the repository. They are injected at deploy time by GitHub Actions using repository secrets, and the local-config script tag is stripped from the deployed HTML.
 
 ### Required GitHub Secrets
 
@@ -76,13 +92,22 @@ Set these in **GitHub → Settings → Secrets and variables → Actions**:
 - [ ] Firestore database created in production mode
 - [ ] Firestore security rules published (see `firestore.rules`)
 - [ ] GitHub Pages domain added to Firebase authorised domains
-- [ ] `allowedUsers` collection created with at least one user document
+- [ ] `allowedUsers` collection created with at least one `admin` user document
+
+## Security Model
+
+- **Authentication**: Google OAuth via Firebase Auth. Popup-based sign-in with redirect fallback.
+- **Authorization**: Enforced server-side by Firestore rules. The client-side allowlist check is advisory; the database rejects writes from non-allowlisted users regardless of client state.
+- **XSS protection**: All user-supplied values (baby names, dates) are HTML-escaped before being rendered.
+- **Import validation**: Imported JSON backups are type-checked and validated before being written to Firestore (date format, name length, required fields).
+- **Secrets**: Firebase web config is injected at build time via GitHub Secrets. The `firebase-config.local.js` file used for local dev is gitignored.
 
 ## Firestore Data Structure
 
 ```
 users/
   {uid}/
+    ownerEmail: string              // the researcher's email (for admin attribution)
     babies: [
       {
         name: string,
@@ -99,7 +124,8 @@ users/
 
 allowedUsers/
   {email}/
-    name: string
+    role: "admin" | "entry"
+    name: string                    // optional, for reference
 ```
 
 ## Tech Stack
