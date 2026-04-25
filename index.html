@@ -9,6 +9,9 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+    <!-- Local config (gitignored). Only present when running locally.
+         In production, GitHub Actions injects values directly into index.html. -->
+    <script src="firebase-config.local.js"></script>
 
     <style>
         body {
@@ -221,17 +224,18 @@
 </div>
 
 <script>
-    // Firebase config values are injected at deploy time by GitHub Actions.
-    // Do NOT replace these placeholders manually — add the real values as
-    // GitHub repository secrets (see .github/workflows/deploy.yml for names).
-    const firebaseConfig = {
-        apiKey:            "AIzaSyC_h0-oB4ROcLVH1Bp-GZhWIOz7YJkxbm8",
-        authDomain:        "baby-milestone-tracker-71210.firebaseapp.com",
-        projectId:         "baby-milestone-tracker-71210",
-        storageBucket:     "baby-milestone-tracker-71210.firebasestorage.app",
-        messagingSenderId: "661383254948",
-        appId:             "1:661383254948:web:59d7a3a93e1e264d43e731"
-    };
+    // In production: values are injected by GitHub Actions (replaces __PLACEHOLDERS__).
+    // Locally: values come from firebase-config.local.js (gitignored, never committed).
+    const firebaseConfig = (typeof FIREBASE_LOCAL_CONFIG !== 'undefined')
+        ? FIREBASE_LOCAL_CONFIG
+        : {
+            apiKey:            "AIzaSyC_h0-oB4ROcLVH1Bp-GZhWIOz7YJkxbm8",
+            authDomain:        "baby-milestone-tracker-71210.firebaseapp.com",
+            projectId:         "baby-milestone-tracker-71210",
+            storageBucket:     "baby-milestone-tracker-71210.firebasestorage.app",
+            messagingSenderId: "661383254948",
+            appId:             "1:661383254948:web:59d7a3a93e1e264d43e731"
+        };
 
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
@@ -270,7 +274,7 @@
     async function signInWithGoogle() {
         const provider = new firebase.auth.GoogleAuthProvider();
         try {
-            await auth.signInWithPopup(provider);
+            await auth.signInWithRedirect(provider);
         } catch (error) {
             alert('Sign in failed: ' + error.message);
         }
