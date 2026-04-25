@@ -2,18 +2,31 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Each user can only check their OWN allowlist entry — not enumerate others.
-    // No one can write to the allowlist from the app — manage it in the Firebase Console.
-    match /allowedUsers/{email} {
-      allow get:    if request.auth != null && request.auth.token.email == email;
-      allow list, write: if false;
+    // Helpers
+    function isAllowed() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/allowedUsers/$(request.auth.token.email));
     }
 
-    // Each user can only read and write their own data.
+    function isAdmin() {
+      return isAllowed()
+        && get(/databases/$(database)/documents/allowedUsers/$(request.auth.token.email)).data.role == 'admin';
+    }
+
+    // Allowlist — admins can list to discover roles; others can only check their own entry.
+    // Writes are always blocked from the app; manage via Firebase Console.
+    match /allowedUsers/{email} {
+      allow get:  if request.auth != null && (request.auth.token.email == email || isAdmin());
+      allow list: if isAdmin();
+      allow write: if false;
+    }
+
+    // Per-user data.
+    //   Entry users: full read/write on their own doc only.
+    //   Admins:      read all docs; write only their own.
     match /users/{userId} {
-      allow read, write: if request.auth != null
-                         && request.auth.uid == userId
-                         && exists(/databases/$(database)/documents/allowedUsers/$(request.auth.token.email));
+      allow read:  if isAdmin() || (isAllowed() && request.auth.uid == userId);
+      allow write: if isAllowed() && request.auth.uid == userId;
     }
   }
 }
