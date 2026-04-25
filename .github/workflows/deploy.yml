@@ -30,6 +30,8 @@ jobs:
           sed -i "s|__FIREBASE_STORAGE_BUCKET__|$FIREBASE_STORAGE_BUCKET|g"         index.html
           sed -i "s|__FIREBASE_MESSAGING_SENDER_ID__|$FIREBASE_MESSAGING_SENDER_ID|g" index.html
           sed -i "s|__FIREBASE_APP_ID__|$FIREBASE_APP_ID|g"                         index.html
+          # Remove the local-only config script tag (file is gitignored, not deployed)
+          sed -i '/firebase-config\.local\.js/d' index.html
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
