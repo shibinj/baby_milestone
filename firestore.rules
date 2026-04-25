@@ -24,9 +24,12 @@ service cloud.firestore {
     // Per-user data.
     //   Entry users: full read/write on their own doc only.
     //   Admins:      read all docs; write only their own.
+    //   ownerEmail must match the authenticated identity — prevents attribution forgery.
     match /users/{userId} {
       allow read:  if isAdmin() || (isAllowed() && request.auth.uid == userId);
-      allow write: if isAllowed() && request.auth.uid == userId;
+      allow write: if isAllowed()
+                    && request.auth.uid == userId
+                    && request.resource.data.ownerEmail == request.auth.token.email;
     }
   }
 }

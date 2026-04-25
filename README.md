@@ -98,6 +98,7 @@ Set these in **GitHub → Settings → Secrets and variables → Actions**:
 
 - **Authentication**: Google OAuth via Firebase Auth. Popup-based sign-in with redirect fallback.
 - **Authorization**: Enforced server-side by Firestore rules. The client-side allowlist check is advisory; the database rejects writes from non-allowlisted users regardless of client state.
+- **Attribution integrity**: Firestore rules require every write to set `ownerEmail` to the authenticated user's own email, so researchers cannot forge "Entered By" attribution seen by admins.
 - **XSS protection**: All user-supplied values (baby names, dates) are HTML-escaped before being rendered.
 - **Import validation**: Imported JSON backups are type-checked and validated before being written to Firestore (date format, name length, required fields).
 - **Secrets**: Firebase web config is injected at build time via GitHub Secrets. The `firebase-config.local.js` file used for local dev is gitignored.
