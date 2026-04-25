@@ -45,6 +45,7 @@ npm-debug.log*
 
 # Firebase config (contains API key — never commit)
 admin/firebase-config.js
+firebase-config.local.js
 
 #AI tools
 .claude/
