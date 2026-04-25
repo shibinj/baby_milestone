@@ -511,6 +511,10 @@
 
     // ── Auth ────────────────────────────────────────────────
 
+    // Handle the returning redirect before onAuthStateChanged fires, so the
+    // auth screen isn't shown momentarily on browsers that block popups.
+    auth.getRedirectResult().catch(() => {});
+
     auth.onAuthStateChanged(async (user) => {
         if (user) {
             const role = await getUserRole(user.email);
@@ -554,20 +558,22 @@
         document.getElementById('appContent').style.display     = 'none';
     }
 
+    function isMobile() {
+        return /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    }
+
     async function signInWithGoogle() {
         const provider = new firebase.auth.GoogleAuthProvider();
-        try {
-            // Popup works reliably on real HTTPS domains.
-            // Fall back to redirect if the browser blocks the popup.
-            await auth.signInWithPopup(provider);
-        } catch (e) {
-            if (e.code === 'auth/popup-blocked' || e.code === 'auth/popup-closed-by-user') {
-                try {
-                    await auth.signInWithRedirect(provider);
-                } catch (e2) {
-                    showToast('Sign in failed: ' + e2.message, 'error');
-                }
-            } else {
+        if (isMobile()) {
+            try {
+                await auth.signInWithRedirect(provider);
+            } catch (e) {
+                showToast('Sign in failed: ' + e.message, 'error');
+            }
+        } else {
+            try {
+                await auth.signInWithPopup(provider);
+            } catch (e) {
                 showToast('Sign in failed: ' + e.message, 'error');
             }
         }
@@ -791,10 +797,10 @@
     function viewSavedData() {
         if (babiesCache.length === 0) { showToast('No saved data yet', 'warning'); return; }
 
-        // Sort alphabetically
+        // Sort by birth date ascending
         const sorted = babiesCache
             .map((baby, originalIndex) => ({ baby, originalIndex }))
-            .sort((a, b) => a.baby.name.localeCompare(b.baby.name));
+            .sort((a, b) => parseDDMMYYYY(a.baby.birthDateStr) - parseDDMMYYYY(b.baby.birthDateStr));
 
         let html = '';
         sorted.forEach(({ baby, originalIndex: idx }) => {
