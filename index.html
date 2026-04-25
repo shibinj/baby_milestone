@@ -27,10 +27,7 @@
             border-radius: 10px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
-        h1 {
-            color: #333;
-            margin-top: 0;
-        }
+        h1 { color: #333; margin-top: 0; }
         label {
             display: block;
             margin: 15px 0 5px;
@@ -59,11 +56,23 @@
         button:hover { background: #45a049; }
         .view-btn { background: #2196F3; margin-top: 10px; }
         .view-btn:hover { background: #0b7dda; }
+
         .backup-buttons {
             display: flex;
             gap: 10px;
             margin-top: 10px;
         }
+        .csv-btn {
+            flex: 1;
+            background: #00897B;
+            padding: 12px;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        .csv-btn:hover { background: #00695C; }
         .export-btn {
             flex: 1;
             background: #9C27B0;
@@ -87,6 +96,7 @@
         }
         .import-btn:hover { background: #0097A7; }
         #importFile { display: none; }
+
         .results {
             margin-top: 30px;
             padding: 20px;
@@ -121,17 +131,9 @@
         }
         .milestone strong { color: #2e7d32; }
 
-        /* Auth & loading styles */
-        #loadingScreen {
-            text-align: center;
-            padding: 60px 20px;
-            color: #888;
-        }
-        #authScreen {
-            text-align: center;
-            padding: 40px 20px;
-            display: none;
-        }
+        /* Auth & loading */
+        #loadingScreen { text-align: center; padding: 60px 20px; color: #888; }
+        #authScreen { text-align: center; padding: 40px 20px; display: none; }
         #authScreen h1 { margin-bottom: 10px; }
         #authScreen p { color: #666; margin: 0 0 30px; }
         .sign-in-btn {
@@ -169,24 +171,104 @@
             margin: 0;
         }
         .sign-out-btn:hover { background: #b71c1c; }
+
+        /* Overview stats */
+        .overview-panel {
+            display: none;
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .overview-title {
+            font-size: 13px;
+            font-weight: bold;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 10px;
+        }
+        .stats-row {
+            display: flex;
+            gap: 10px;
+        }
+        .stat-card {
+            flex: 1;
+            background: white;
+            border-radius: 6px;
+            padding: 10px 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 22px;
+            font-weight: bold;
+            color: #333;
+        }
+        .stat-label {
+            font-size: 11px;
+            color: #999;
+            margin-top: 2px;
+        }
+        .stat-sub {
+            font-size: 12px;
+            color: #555;
+            margin-top: 4px;
+            font-weight: bold;
+        }
+
+        /* Milestone panel */
+        .milestone-panel {
+            display: none;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .milestone-panel.has-items { display: block; }
+        .milestone-panel-title {
+            font-size: 13px;
+            font-weight: bold;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 10px;
+        }
+        .milestone-item {
+            padding: 10px 12px;
+            margin: 6px 0;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        .milestone-item.upcoming {
+            background: #fff8e1;
+            border-left: 4px solid #FF9800;
+        }
+        .milestone-item.recent {
+            background: #e8f5e9;
+            border-left: 4px solid #4CAF50;
+        }
+        .milestone-item.today {
+            background: #e3f2fd;
+            border-left: 4px solid #2196F3;
+        }
+        .section-divider {
+            border: none;
+            border-top: 1px solid #eee;
+            margin: 20px 0;
+        }
     </style>
 </head>
 <body>
 <div class="container">
 
-    <!-- Loading -->
-    <div id="loadingScreen">
-        <p>Loading...</p>
-    </div>
+    <div id="loadingScreen"><p>Loading...</p></div>
 
-    <!-- Sign-in screen (shown when not authenticated) -->
     <div id="authScreen">
         <h1>👶 Baby Milestone Tracker</h1>
         <p>Sign in to keep your data safe and synced across all your devices.</p>
         <button class="sign-in-btn" onclick="signInWithGoogle()">🔑 Sign in with Google</button>
     </div>
 
-    <!-- Main app (shown when authenticated) -->
     <div id="appContent">
         <div class="user-header">
             <h1>👶 Baby Milestone Tracker</h1>
@@ -196,11 +278,25 @@
             </div>
         </div>
 
+        <!-- Overview stats panel -->
+        <div class="overview-panel" id="overviewPanel">
+            <div class="overview-title">Overview</div>
+            <div class="stats-row" id="statsRow"></div>
+        </div>
+
+        <!-- Upcoming / recent milestones panel -->
+        <div class="milestone-panel" id="milestonePanel">
+            <div class="milestone-panel-title">Milestone Activity</div>
+            <div id="milestoneItems"></div>
+        </div>
+
+        <hr class="section-divider">
+
         <label>Baby's Name</label>
         <input type="text" id="babyName" placeholder="Enter baby's name">
 
-        <label>Birth Date (DD/MM/YYYY)</label>
-        <input type="text" id="birthDate" placeholder="e.g., 15/08/2025">
+        <label>Birth Date</label>
+        <input type="date" id="birthDate">
 
         <label>Gestational Age</label>
         <div style="display: flex; gap: 10px;">
@@ -212,8 +308,9 @@
         <button class="view-btn" onclick="viewSavedData()">View Saved Babies</button>
 
         <div class="backup-buttons">
-            <button class="export-btn" onclick="exportData()">📥 Export Backup</button>
-            <button class="import-btn" onclick="document.getElementById('importFile').click()">📤 Import Backup</button>
+            <button class="csv-btn" onclick="exportCSV()">📊 Export CSV</button>
+            <button class="export-btn" onclick="exportData()">📥 Export JSON</button>
+            <button class="import-btn" onclick="document.getElementById('importFile').click()">📤 Import</button>
         </div>
         <input type="file" id="importFile" accept=".json" onchange="importData(event)">
 
@@ -224,8 +321,6 @@
 </div>
 
 <script>
-    // In production: values are injected by GitHub Actions (replaces __PLACEHOLDERS__).
-    // Locally: values come from firebase-config.local.js (gitignored, never committed).
     const firebaseConfig = (typeof FIREBASE_LOCAL_CONFIG !== 'undefined')
         ? FIREBASE_LOCAL_CONFIG
         : {
@@ -244,7 +339,6 @@
     let babiesCache = [];
     let currentUser = null;
 
-    // Runs once on load and whenever auth state changes (sign in / sign out / page refresh)
     auth.onAuthStateChanged(async (user) => {
         if (user) {
             const allowed = await isUserAllowed(user.email);
@@ -258,7 +352,7 @@
             document.getElementById('userEmail').textContent = user.email;
             await loadBabiesFromFirestore();
             showApp();
-            checkMilestones();
+            showDashboard();
         } else {
             currentUser = null;
             babiesCache = [];
@@ -293,14 +387,11 @@
     }
 
     async function doSignOut() {
-        if (confirm('Sign out?')) {
-            await auth.signOut();
-        }
+        if (confirm('Sign out?')) await auth.signOut();
     }
 
     // ================================================================
-    // FIRESTORE — one document per user, stores the babies array
-    // Path: users/{uid}  →  { babies: [...] }
+    // FIRESTORE
     // ================================================================
 
     function userDocRef() {
@@ -317,47 +408,158 @@
     }
 
     // ================================================================
-    // APP LOGIC
+    // DATE HELPERS
     // ================================================================
 
-    function checkMilestones() {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+    // YYYY-MM-DD  →  DD/MM/YYYY  (for storage)
+    function dateInputToDisplay(val) {
+        const [y, m, d] = val.split('-');
+        return `${d}/${m}/${y}`;
+    }
 
-        // Only alert once per device per day (stored locally, not in Firestore)
-        const lastCheck = localStorage.getItem('lastCheck');
-        if (lastCheck && new Date(lastCheck).toDateString() === today.toDateString()) return;
+    // DD/MM/YYYY  →  YYYY-MM-DD  (for date input)
+    function displayToDateInput(val) {
+        const [d, m, y] = val.split('/');
+        return `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
+    }
 
-        const alerts = [];
+    // DD/MM/YYYY  →  Date object
+    function parseDDMMYYYY(val) {
+        const [d, m, y] = val.split('/');
+        return new Date(y, m - 1, d);
+    }
+
+    // ================================================================
+    // DASHBOARD — overview stats + milestone activity panel
+    // ================================================================
+
+    function showDashboard() {
+        showOverview();
+        showMilestonePanel();
+    }
+
+    function showOverview() {
+        if (babiesCache.length === 0) return;
+
+        const sorted = [...babiesCache].sort((a, b) =>
+            parseDDMMYYYY(a.birthDateStr) - parseDDMMYYYY(b.birthDateStr)
+        );
+        const oldest = sorted[0];
+        const newest = sorted[sorted.length - 1];
+
+        document.getElementById('statsRow').innerHTML = `
+            <div class="stat-card">
+                <div class="stat-value">${babiesCache.length}</div>
+                <div class="stat-label">Total Babies</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">📅</div>
+                <div class="stat-label">Oldest Entry</div>
+                <div class="stat-sub">${oldest.birthDateStr}<br><span style="font-weight:normal;color:#aaa">${oldest.name}</span></div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">🆕</div>
+                <div class="stat-label">Newest Entry</div>
+                <div class="stat-sub">${newest.birthDateStr}<br><span style="font-weight:normal;color:#aaa">${newest.name}</span></div>
+            </div>
+        `;
+        document.getElementById('overviewPanel').style.display = 'block';
+    }
+
+    function showMilestonePanel() {
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        const in7    = new Date(today); in7.setDate(today.getDate() + 7);
+        const ago7   = new Date(today); ago7.setDate(today.getDate() - 7);
+
+        const upcoming = [];
+        const recent   = [];
+
         babiesCache.forEach(baby => {
             baby.milestones.forEach(m => {
-                const milestoneDate = new Date(m.date);
-                milestoneDate.setHours(0, 0, 0, 0);
-                const daysSince = Math.floor((today - milestoneDate) / (1000 * 60 * 60 * 24));
-                if (daysSince >= 0 && daysSince <= 5) {
-                    if (daysSince === 0) {
-                        alerts.push(`🎉 ${baby.name} has completed ${m.months} months today!`);
-                    } else {
-                        alerts.push(`⏰ ${baby.name} completed ${m.months} months ${daysSince} day${daysSince > 1 ? 's' : ''} ago!`);
-                    }
+                const md = new Date(m.date); md.setHours(0, 0, 0, 0);
+                if (md.getTime() === today.getTime()) {
+                    upcoming.unshift({ baby, m, md, isToday: true });
+                } else if (md > today && md <= in7) {
+                    upcoming.push({ baby, m, md, isToday: false });
+                } else if (md >= ago7 && md < today) {
+                    recent.push({ baby, m, md });
                 }
             });
         });
 
-        if (alerts.length > 0) alert(alerts.join('\n\n'));
-        localStorage.setItem('lastCheck', today.toISOString());
+        if (upcoming.length === 0 && recent.length === 0) return;
+
+        let html = '';
+
+        if (upcoming.length > 0) {
+            upcoming.sort((a, b) => a.md - b.md).forEach(({ baby, m, md, isToday }) => {
+                const daysUntil = Math.round((md - today) / 86400000);
+                const when = isToday ? 'Today!' : `in ${daysUntil} day${daysUntil > 1 ? 's' : ''} (${md.toLocaleDateString('en-GB')})`;
+                const cls  = isToday ? 'today' : 'upcoming';
+                const icon = isToday ? '🎉' : '⏰';
+                html += `<div class="milestone-item ${cls}">${icon} <strong>${baby.name}</strong> — ${m.months} month milestone ${when}</div>`;
+            });
+        }
+
+        if (recent.length > 0) {
+            recent.sort((a, b) => b.md - a.md).forEach(({ baby, m, md }) => {
+                const daysAgo = Math.round((today - md) / 86400000);
+                html += `<div class="milestone-item recent">✅ <strong>${baby.name}</strong> — ${m.months} month milestone ${daysAgo} day${daysAgo > 1 ? 's' : ''} ago (${md.toLocaleDateString('en-GB')})</div>`;
+            });
+        }
+
+        document.getElementById('milestoneItems').innerHTML = html;
+        document.getElementById('milestonePanel').classList.add('has-items');
     }
+
+    // ================================================================
+    // EXPORT — JSON backup + CSV for analysis
+    // ================================================================
 
     function exportData() {
         const data = { babies: babiesCache, exportDate: new Date().toISOString() };
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-        const url  = URL.createObjectURL(blob);
-        const a    = document.createElement('a');
-        a.href     = url;
-        a.download = `baby-milestones-backup-${new Date().toISOString().split('T')[0]}.json`;
-        a.click();
+        triggerDownload(blob, `baby-milestones-backup-${today()}.json`);
+        alert('JSON backup downloaded!');
+    }
+
+    function exportCSV() {
+        if (babiesCache.length === 0) { alert('No data to export'); return; }
+
+        const rows = [
+            ['Name', 'Birth Date', 'Gestational Weeks', 'Gestational Days', '6 Month Milestone', '9 Month Milestone', '12 Month Milestone']
+        ];
+
+        babiesCache.forEach(baby => {
+            const ms = {};
+            baby.milestones.forEach(m => {
+                ms[m.months] = new Date(m.date).toLocaleDateString('en-GB');
+            });
+            rows.push([
+                baby.name,
+                baby.birthDateStr,
+                baby.gestationalWeeks || baby.gestationalAge || '',
+                baby.gestationalDays  || 0,
+                ms[6]  || '',
+                ms[9]  || '',
+                ms[12] || ''
+            ]);
+        });
+
+        const csv  = rows.map(r => r.map(v => `"${v}"`).join(',')).join('\n');
+        const blob = new Blob([csv], { type: 'text/csv' });
+        triggerDownload(blob, `baby-milestones-${today()}.csv`);
+    }
+
+    function triggerDownload(blob, filename) {
+        const url = URL.createObjectURL(blob);
+        const a   = document.createElement('a');
+        a.href = url; a.download = filename; a.click();
         URL.revokeObjectURL(url);
-        alert('Backup downloaded successfully!');
+    }
+
+    function today() {
+        return new Date().toISOString().split('T')[0];
     }
 
     async function importData(event) {
@@ -372,6 +574,7 @@
                         babiesCache = data.babies;
                         await saveBabiesToFirestore();
                         alert('Data imported successfully!');
+                        showDashboard();
                         viewSavedData();
                     }
                 } else {
@@ -385,24 +588,28 @@
         event.target.value = '';
     }
 
+    // ================================================================
+    // CORE APP LOGIC
+    // ================================================================
+
     async function calculateMilestones() {
         const name             = document.getElementById('babyName').value.trim();
-        const birthDateStr     = document.getElementById('birthDate').value.trim();
+        const birthDateInput   = document.getElementById('birthDate').value;
         const gestationalWeeks = parseInt(document.getElementById('gestationalWeeks').value) || 0;
         const gestationalDays  = parseInt(document.getElementById('gestationalDays').value)  || 0;
 
-        if (!name || !birthDateStr || !gestationalWeeks) {
+        if (!name || !birthDateInput || !gestationalWeeks) {
             alert('Please fill in all fields');
             return;
         }
 
-        const parts = birthDateStr.split('/');
-        if (parts.length !== 3) { alert('Please use DD/MM/YYYY format'); return; }
+        const birthDateStr = dateInputToDisplay(birthDateInput);
+        const [y, m, d]    = birthDateInput.split('-');
+        const birthDate    = new Date(y, m - 1, d);
 
-        const birthDate = new Date(parts[2], parts[1] - 1, parts[0]);
         if (isNaN(birthDate.getTime())) { alert('Invalid date'); return; }
 
-        const adjustmentDays = (40 * 7) - ((gestationalWeeks * 7) + gestationalDays);
+        const adjustmentDays     = (40 * 7) - ((gestationalWeeks * 7) + gestationalDays);
         const gestationalDisplay = gestationalDays > 0
             ? `${gestationalWeeks} weeks ${gestationalDays} days`
             : `${gestationalWeeks} weeks`;
@@ -427,9 +634,8 @@
         });
 
         await saveData({ name, birthDateStr, gestationalWeeks, gestationalDays, milestones: milestoneData });
-        checkMilestones();
 
-        document.getElementById('results').innerHTML   = html;
+        document.getElementById('results').innerHTML        = html;
         document.getElementById('results').style.display   = 'block';
         document.getElementById('savedList').style.display = 'none';
     }
@@ -473,10 +679,10 @@
 
     function editBaby(index) {
         const baby = babiesCache[index];
-        document.getElementById('babyName').value          = baby.name;
-        document.getElementById('birthDate').value         = baby.birthDateStr;
-        document.getElementById('gestationalWeeks').value  = baby.gestationalWeeks || baby.gestationalAge || '';
-        document.getElementById('gestationalDays').value   = baby.gestationalDays || 0;
+        document.getElementById('babyName').value         = baby.name;
+        document.getElementById('birthDate').value        = displayToDateInput(baby.birthDateStr);
+        document.getElementById('gestationalWeeks').value = baby.gestationalWeeks || baby.gestationalAge || '';
+        document.getElementById('gestationalDays').value  = baby.gestationalDays || 0;
         document.getElementById('savedList').style.display = 'none';
         window.scrollTo(0, 0);
     }
