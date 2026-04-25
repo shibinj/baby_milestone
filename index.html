@@ -426,6 +426,7 @@
     let babiesCache = [];
     let currentUser = null;
     let currentRole = 'entry';   // 'entry' or 'admin'
+    let unsubscribeListeners = [];
 
     // HTML-escape user-supplied values before interpolating into innerHTML.
     function esc(s) {
@@ -448,10 +449,11 @@
             currentUser = user;
             currentRole = role;
             document.getElementById('userEmail').textContent = `${user.email}${role === 'admin' ? ' (admin)' : ''}`;
-            await loadBabiesFromFirestore();
             showApp();
-            showDashboard();
+            subscribeToFirestore();
         } else {
+            unsubscribeListeners.forEach(u => u());
+            unsubscribeListeners = [];
             currentUser = null;
             currentRole = 'entry';
             babiesCache = [];
@@ -507,21 +509,29 @@
         return db.collection('users').doc(currentUser.uid);
     }
 
-    async function loadBabiesFromFirestore() {
+    function subscribeToFirestore() {
+        unsubscribeListeners.forEach(u => u());
+        unsubscribeListeners = [];
+
         if (currentRole === 'admin') {
-            // Admin sees everyone's data. Each baby is tagged with the owner's uid
-            // and the email of who entered it, so writes still go to the right doc.
-            const snap = await db.collection('users').get();
-            babiesCache = [];
-            snap.forEach(doc => {
-                const data = doc.data();
-                (data.babies || []).forEach(b => {
-                    babiesCache.push({ ...b, _ownerUid: doc.id, _enteredBy: data.ownerEmail || '' });
+            // Admin sees everyone's data in real time.
+            const unsub = db.collection('users').onSnapshot(snap => {
+                babiesCache = [];
+                snap.forEach(doc => {
+                    const data = doc.data();
+                    (data.babies || []).forEach(b => {
+                        babiesCache.push({ ...b, _ownerUid: doc.id, _enteredBy: data.ownerEmail || '' });
+                    });
                 });
+                showDashboard();
             });
+            unsubscribeListeners.push(unsub);
         } else {
-            const snap = await userDocRef().get();
-            babiesCache = snap.exists ? (snap.data().babies || []) : [];
+            const unsub = userDocRef().onSnapshot(snap => {
+                babiesCache = snap.exists ? (snap.data().babies || []) : [];
+                showDashboard();
+            });
+            unsubscribeListeners.push(unsub);
         }
     }
 
