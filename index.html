@@ -247,6 +247,13 @@
     // Runs once on load and whenever auth state changes (sign in / sign out / page refresh)
     auth.onAuthStateChanged(async (user) => {
         if (user) {
+            const allowed = await isUserAllowed(user.email);
+            if (!allowed) {
+                await auth.signOut();
+                showAuthScreen();
+                alert(`Access denied. ${user.email} is not authorised to use this app. Please contact the research team.`);
+                return;
+            }
             currentUser = user;
             document.getElementById('userEmail').textContent = user.email;
             await loadBabiesFromFirestore();
@@ -258,6 +265,11 @@
             showAuthScreen();
         }
     });
+
+    async function isUserAllowed(email) {
+        const snap = await db.collection('allowedUsers').doc(email).get();
+        return snap.exists;
+    }
 
     function showApp() {
         document.getElementById('loadingScreen').style.display = 'none';
