@@ -424,6 +424,7 @@
 
     let babiesCache = [];
     let currentUser = null;
+    let currentRole = 'entry';   // 'entry' or 'admin'
 
     // HTML-escape user-supplied values before interpolating into innerHTML.
     function esc(s) {
@@ -436,28 +437,32 @@
 
     auth.onAuthStateChanged(async (user) => {
         if (user) {
-            const allowed = await isUserAllowed(user.email);
-            if (!allowed) {
+            const role = await getUserRole(user.email);
+            if (!role) {
                 await auth.signOut();
                 showAuthScreen();
                 alert(`Access denied. ${user.email} is not authorised to use this app. Please contact the research team.`);
                 return;
             }
             currentUser = user;
-            document.getElementById('userEmail').textContent = user.email;
+            currentRole = role;
+            document.getElementById('userEmail').textContent = `${user.email}${role === 'admin' ? ' (admin)' : ''}`;
             await loadBabiesFromFirestore();
             showApp();
             showDashboard();
         } else {
             currentUser = null;
+            currentRole = 'entry';
             babiesCache = [];
             showAuthScreen();
         }
     });
 
-    async function isUserAllowed(email) {
+    // Returns the user's role ('admin' or 'entry') if allowed, null otherwise.
+    async function getUserRole(email) {
         const snap = await db.collection('allowedUsers').doc(email).get();
-        return snap.exists;
+        if (!snap.exists) return null;
+        return snap.data().role === 'admin' ? 'admin' : 'entry';
     }
 
     function showApp() {
@@ -502,12 +507,35 @@
     }
 
     async function loadBabiesFromFirestore() {
-        const snap = await userDocRef().get();
-        babiesCache = snap.exists ? (snap.data().babies || []) : [];
+        if (currentRole === 'admin') {
+            // Admin sees everyone's data. Each baby is tagged with the owner's uid
+            // and the email of who entered it, so writes still go to the right doc.
+            const snap = await db.collection('users').get();
+            babiesCache = [];
+            snap.forEach(doc => {
+                const data = doc.data();
+                (data.babies || []).forEach(b => {
+                    babiesCache.push({ ...b, _ownerUid: doc.id, _enteredBy: data.ownerEmail || '' });
+                });
+            });
+        } else {
+            const snap = await userDocRef().get();
+            babiesCache = snap.exists ? (snap.data().babies || []) : [];
+        }
     }
 
+    // Saves only the CURRENT user's own records. Admin view is read-only across users.
     async function saveBabiesToFirestore() {
-        await userDocRef().set({ babies: babiesCache }, { merge: true });
+        const myBabies = babiesCache
+            .filter(b => !b._ownerUid || b._ownerUid === currentUser.uid)
+            .map(b => {
+                const { _ownerUid, _enteredBy, ...clean } = b;
+                return clean;
+            });
+        await userDocRef().set(
+            { babies: myBabies, ownerEmail: currentUser.email },
+            { merge: true }
+        );
     }
 
     // ── Date helpers ────────────────────────────────────────
@@ -667,6 +695,35 @@
                 ? `${baby.gestationalWeeks} weeks ${baby.gestationalDays} days`
                 : `${baby.gestationalWeeks || baby.gestationalAge} weeks`;
 
+            // For admins: records owned by other users are read-only.
+            const isOwnRecord = !baby._ownerUid || baby._ownerUid === currentUser.uid;
+            const enteredByRow = baby._enteredBy
+                ? `<div class="detail-row"><span class="detail-label">Entered by</span><span class="detail-value">${esc(baby._enteredBy)}</span></div>`
+                : '';
+            const actions = isOwnRecord
+                ? `<div class="detail-actions">
+                    <button class="action-btn edit-btn-card"   onclick="startEdit(${idx})">✏️ Edit</button>
+                    <button class="action-btn delete-btn-card" onclick="deleteBaby(${idx})">🗑️ Delete</button>
+                   </div>`
+                : `<div class="detail-actions" style="opacity:0.6;font-size:13px;color:#888;padding-top:10px">Read-only (entered by another researcher)</div>`;
+            const editForm = isOwnRecord
+                ? `<div class="edit-form" id="editForm-${idx}" style="display:none">
+                        <label>Baby's Name</label>
+                        <input type="text" id="editName-${idx}" value="${esc(baby.name)}">
+                        <label>Birth Date</label>
+                        <input type="date" id="editBirthDate-${idx}" value="${esc(displayToDateInput(baby.birthDateStr))}">
+                        <label>Gestational Age</label>
+                        <div class="two-col">
+                            <input type="number" id="editWeeks-${idx}" value="${esc(baby.gestationalWeeks || baby.gestationalAge || '')}" placeholder="Weeks" min="20" max="44">
+                            <input type="number" id="editDays-${idx}"  value="${esc(baby.gestationalDays || 0)}" placeholder="Days" min="0" max="6">
+                        </div>
+                        <div class="edit-actions">
+                            <button class="save-btn"   onclick="saveEdit(${idx})">💾 Save</button>
+                            <button class="cancel-btn" onclick="cancelEdit(${idx})">✕ Cancel</button>
+                        </div>
+                   </div>`
+                : '';
+
             let milestoneRows = '';
             baby.milestones.forEach(m => {
                 milestoneRows += `
@@ -686,34 +743,16 @@
                     <span class="chevron" id="chevron-${idx}">›</span>
                 </div>
                 <div class="baby-detail" id="detail-${idx}">
-                    <!-- Detail view -->
                     <div class="detail-view" id="detailView-${idx}">
                         <div class="detail-row">
                             <span class="detail-label">Gestational Age</span>
                             <span class="detail-value">${esc(gestDisplay)}</span>
                         </div>
+                        ${enteredByRow}
                         ${milestoneRows}
-                        <div class="detail-actions">
-                            <button class="action-btn edit-btn-card"   onclick="startEdit(${idx})">✏️ Edit</button>
-                            <button class="action-btn delete-btn-card" onclick="deleteBaby(${idx})">🗑️ Delete</button>
-                        </div>
+                        ${actions}
                     </div>
-                    <!-- Inline edit form -->
-                    <div class="edit-form" id="editForm-${idx}" style="display:none">
-                        <label>Baby's Name</label>
-                        <input type="text" id="editName-${idx}" value="${esc(baby.name)}">
-                        <label>Birth Date</label>
-                        <input type="date" id="editBirthDate-${idx}" value="${esc(displayToDateInput(baby.birthDateStr))}">
-                        <label>Gestational Age</label>
-                        <div class="two-col">
-                            <input type="number" id="editWeeks-${idx}" value="${esc(baby.gestationalWeeks || baby.gestationalAge || '')}" placeholder="Weeks" min="20" max="44">
-                            <input type="number" id="editDays-${idx}"  value="${esc(baby.gestationalDays || 0)}" placeholder="Days" min="0" max="6">
-                        </div>
-                        <div class="edit-actions">
-                            <button class="save-btn"   onclick="saveEdit(${idx})">💾 Save</button>
-                            <button class="cancel-btn" onclick="cancelEdit(${idx})">✕ Cancel</button>
-                        </div>
-                    </div>
+                    ${editForm}
                 </div>
             </div>`;
         });
@@ -801,13 +840,17 @@
 
     function exportCSV() {
         if (babiesCache.length === 0) { alert('No data to export'); return; }
-        const rows = [['Name','Birth Date','Gestational Weeks','Gestational Days','6 Month Milestone','9 Month Milestone','12 Month Milestone']];
+        const header = ['Name','Birth Date','Gestational Weeks','Gestational Days','6 Month Milestone','9 Month Milestone','12 Month Milestone'];
+        if (currentRole === 'admin') header.push('Entered By');
+        const rows = [header];
         babiesCache.forEach(baby => {
             const ms = {};
             baby.milestones.forEach(m => { ms[m.months] = new Date(m.date).toLocaleDateString('en-GB'); });
-            rows.push([baby.name, baby.birthDateStr, baby.gestationalWeeks || baby.gestationalAge || '', baby.gestationalDays || 0, ms[6]||'', ms[9]||'', ms[12]||'']);
+            const row = [baby.name, baby.birthDateStr, baby.gestationalWeeks || baby.gestationalAge || '', baby.gestationalDays || 0, ms[6]||'', ms[9]||'', ms[12]||''];
+            if (currentRole === 'admin') row.push(baby._enteredBy || '');
+            rows.push(row);
         });
-        const csv = rows.map(r => r.map(v => `"${v}"`).join(',')).join('\n');
+        const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
         triggerDownload(new Blob([csv], { type: 'text/csv' }), `baby-milestones-${todayStr()}.csv`);
     }
 
