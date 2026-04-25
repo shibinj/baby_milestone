@@ -525,17 +525,23 @@
         }
     }
 
-    // Saves only the CURRENT user's own records. Admin view is read-only across users.
     async function saveBabiesToFirestore() {
-        const myBabies = babiesCache
-            .filter(b => !b._ownerUid || b._ownerUid === currentUser.uid)
-            .map(b => {
-                const { _ownerUid, _enteredBy, ...clean } = b;
-                return clean;
-            });
-        await userDocRef().set(
-            { babies: myBabies, ownerEmail: currentUser.email },
-            { merge: true }
+        // Group records by owner uid so each user's doc is updated independently.
+        const byOwner = {};
+        babiesCache.forEach(b => {
+            const uid   = b._ownerUid || currentUser.uid;
+            const email = b._ownerUid ? (b._enteredBy || '') : currentUser.email;
+            if (!byOwner[uid]) byOwner[uid] = { email, babies: [] };
+            const { _ownerUid, _enteredBy, ...clean } = b;
+            byOwner[uid].babies.push(clean);
+        });
+        await Promise.all(
+            Object.entries(byOwner).map(([uid, { email, babies }]) =>
+                db.collection('users').doc(uid).set(
+                    { babies, ownerEmail: email },
+                    { merge: true }
+                )
+            )
         );
     }
 
@@ -696,8 +702,7 @@
                 ? `${baby.gestationalWeeks} weeks ${baby.gestationalDays} days`
                 : `${baby.gestationalWeeks || baby.gestationalAge} weeks`;
 
-            // For admins: records owned by other users are read-only.
-            const isOwnRecord = !baby._ownerUid || baby._ownerUid === currentUser.uid;
+            const isOwnRecord = currentRole === 'admin' || !baby._ownerUid || baby._ownerUid === currentUser.uid;
             const enteredByRow = baby._enteredBy
                 ? `<div class="detail-row"><span class="detail-label">Entered by</span><span class="detail-value">${esc(baby._enteredBy)}</span></div>`
                 : '';
@@ -815,7 +820,12 @@
             return { months, date: md.toISOString() };
         });
 
-        babiesCache[idx] = { name, birthDateStr, gestationalWeeks, gestationalDays, milestones };
+        const existing = babiesCache[idx];
+        babiesCache[idx] = {
+            name, birthDateStr, gestationalWeeks, gestationalDays, milestones,
+            ...(existing._ownerUid  ? { _ownerUid:  existing._ownerUid  } : {}),
+            ...(existing._enteredBy ? { _enteredBy: existing._enteredBy } : {}),
+        };
         await saveBabiesToFirestore();
         viewSavedData();
     }
