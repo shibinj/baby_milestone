@@ -467,10 +467,21 @@
     }
 
     async function signInWithGoogle() {
+        const provider = new firebase.auth.GoogleAuthProvider();
         try {
-            await auth.signInWithRedirect(new firebase.auth.GoogleAuthProvider());
+            // Popup works reliably on real HTTPS domains.
+            // Fall back to redirect if the browser blocks the popup.
+            await auth.signInWithPopup(provider);
         } catch (e) {
-            alert('Sign in failed: ' + e.message);
+            if (e.code === 'auth/popup-blocked' || e.code === 'auth/popup-closed-by-user') {
+                try {
+                    await auth.signInWithRedirect(provider);
+                } catch (e2) {
+                    alert('Sign in failed: ' + e2.message);
+                }
+            } else {
+                alert('Sign in failed: ' + e.message);
+            }
         }
     }
 
