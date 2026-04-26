@@ -511,9 +511,21 @@
 
     // ── Auth ────────────────────────────────────────────────
 
+    let authResolved = false;
+
     auth.onAuthStateChanged(async (user) => {
         if (user) {
-            const role = await getUserRole(user.email);
+            authResolved = true;
+            let role;
+            try {
+                role = await getUserRole(user.email);
+            } catch (e) {
+                // Transient Firestore error — don't sign out, just show the app
+                // as loading failed; the user is authenticated.
+                showToast('Could not verify access, please try again.', 'error', 5000);
+                showAuthScreen();
+                return;
+            }
             if (!role) {
                 await auth.signOut();
                 showAuthScreen();
@@ -531,7 +543,10 @@
             currentUser = null;
             currentRole = 'entry';
             babiesCache = [];
-            showAuthScreen();
+            // Only show auth screen after the first resolution — prevents the
+            // loading → auth flash when Firebase hasn't yet restored the session.
+            if (authResolved) showAuthScreen();
+            authResolved = true;
         }
     });
 
