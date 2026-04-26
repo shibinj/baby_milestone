@@ -510,6 +510,11 @@
 
     // ── Auth ────────────────────────────────────────────────
 
+    // On mobile, signInWithPopup falls back to a redirect. Calling
+    // getRedirectResult() on page load consumes the pending credential so
+    // onAuthStateChanged fires with the user without requiring a second tap.
+    auth.getRedirectResult().catch(() => {});
+
     auth.onAuthStateChanged(async (user) => {
         if (user) {
             let role;
