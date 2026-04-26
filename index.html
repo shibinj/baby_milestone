@@ -511,10 +511,6 @@
 
     // ── Auth ────────────────────────────────────────────────
 
-    // Handle the returning redirect before onAuthStateChanged fires, so the
-    // auth screen isn't shown momentarily on browsers that block popups.
-    auth.getRedirectResult().catch(() => {});
-
     auth.onAuthStateChanged(async (user) => {
         if (user) {
             const role = await getUserRole(user.email);
@@ -558,24 +554,12 @@
         document.getElementById('appContent').style.display     = 'none';
     }
 
-    function isMobile() {
-        return /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-    }
-
     async function signInWithGoogle() {
         const provider = new firebase.auth.GoogleAuthProvider();
-        if (isMobile()) {
-            try {
-                await auth.signInWithRedirect(provider);
-            } catch (e) {
-                showToast('Sign in failed: ' + e.message, 'error');
-            }
-        } else {
-            try {
-                await auth.signInWithPopup(provider);
-            } catch (e) {
-                showToast('Sign in failed: ' + e.message, 'error');
-            }
+        try {
+            await auth.signInWithPopup(provider);
+        } catch (e) {
+            showToast('Sign in failed: ' + e.message, 'error');
         }
     }
 
